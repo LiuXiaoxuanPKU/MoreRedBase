@@ -52,7 +52,7 @@ bool recInsert_float(char *location, string value, int length){
 }
 
 bool recInsert_string(char *location, string value, int length){
-  if(value.length() >= length){
+  if(value.length() >= (size_t)length){
     memcpy(location, value.c_str(), length);
     return true;
   }
@@ -66,7 +66,7 @@ bool recInsert_string(char *location, string value, int length){
 SM_Manager::SM_Manager(IX_Manager &ixm, RM_Manager &rmm) : ixm(ixm), rmm(rmm){
   printIndex = false;
   useQO = true;
-  calcStats = false;
+  calcStats = true;
   printPageStats = true;
 }
 
@@ -573,6 +573,7 @@ RC SM_Manager::DropIndex(const char *relName,
  * about the attributes to facilitate loading files
  */
 RC SM_Manager::PrepareAttr(RelCatEntry *rEntry, Attr* attributes){
+  std::cout << "In PrepareAttr*******" << std::endl;
   RC rc = 0; 
   // Iterate through the attributes related to this relation
   SM_AttrIterator attrIt;
@@ -763,6 +764,7 @@ RC SM_Manager::OpenAndLoadFile(RM_FileHandle &relFH, const char *fileName, Attr*
           return (rc);
         }
       }
+      std::cout << "******Load File*****\n";
       if(calcStats){
         int offset = attributes[i].offset;
         string attr(record + offset, record + offset + attributes[i].length);
@@ -779,9 +781,7 @@ RC SM_Manager::OpenAndLoadFile(RM_FileHandle &relFH, const char *fileName, Attr*
           attributes[i].maxValue = attrValue;
         if(attrValue < attributes[i].minValue)
           attributes[i].minValue = attrValue;
-      }
-
-      
+      }  
     }
     loadedRecs++;
     //printf("record : %d, %d\n", *(int*)record, *(int*)(record+4));

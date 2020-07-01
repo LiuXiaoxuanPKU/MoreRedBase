@@ -116,7 +116,7 @@ public:
   RC PrintNode(int numTabs);
   bool IsRelNode();
   RC OpenIt(void *data);
-   RC UseIndex(int attrNum, int indexNumber, void *data);
+  RC UseIndex(int attrNum, int indexNumber, void *data);
 
   RC AddCondition(const Condition conditions, int condNum);
   RC SetUpNode(int numConds);

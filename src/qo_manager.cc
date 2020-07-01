@@ -13,6 +13,7 @@
 #include "ix.h"
 #include "rm.h"
 #include "ql_node.h"
+#include "qo_cost.h"
 #include <string>
 #undef max
 #undef min
@@ -128,9 +129,13 @@ RC QO_Manager::Compute(QO_Rel *relOrder, float &costEst, float &tupleEst){
         int relsInJoin = *it;
         int newRelsInJoin = relsInJoin;
         AddRelToBitmap(j, newRelsInJoin);
+        // optcost i : the optimial cost when joing i relations
+        // each element in optcost is a map
+        // key is the bitmap representation of selected relations
+        // value is the optimal cost when selecting relations given in the key
         bool isInOptCost1 = (optcost[i-1].find(newRelsInJoin) != optcost[i-1].end());
         bool isInOptCost2 = (optcost[i].find(newRelsInJoin) != optcost[i].end());
-        // If adding this new relation modifies the set (i.e. relation is not)
+        // If adding this new relation modifies the set (i.e. relation is not
         // included in the set of the previous size) and we haven't calculated
         // the optimal way of joining this yet, do so
         if(!IsBitSet(j, relsInJoin) && !isInOptCost1 && !isInOptCost2){
@@ -219,11 +224,10 @@ RC QO_Manager::CalculateOptJoin(int relsInJoin, int relSize){
   return (0);
 }
 
-
 // Given a set of relations already in the join (S-a) as a bitmap
 // relsInJoin, the index of the new relation to join (a), the
 // relation size, and the initial numTuples and attribute statistics,
-// it computes the cost, updates tota tuples, updates attribute
+// it computes the cost, updates total tuples, updates attribute
 // conditions, and whether to use an attribute or not.
 RC QO_Manager::CalculateJoin(int relsInJoin, int newRel, int relSize, 
   float &cost, float &totalTuples, map<int, attrStat> &attrStats,
@@ -264,7 +268,7 @@ RC QO_Manager::CalculateJoin(int relsInJoin, int newRel, int relSize,
       // IF there is an index that can be used with this condition, calculate
       // the number of tuples that satisfy that equality index. We want this
       // number to be as large as possible because that requires less tuples
-      // to be extracted from the index scan -> less PAge reads
+      // to be extracted from the index scan -> less Page reads
       if(conds[i].op == EQ_OP && (IsValidIndexCond(relsInJoin, i, newRel, indexAttrTemp) == 0)
         && ((float)attrs[indexAttrTemp].numDistinct  > indexTupleNum) && (attrs[indexAttrTemp].indexNo != -1)){
         useIdx = true;
@@ -274,28 +278,39 @@ RC QO_Manager::CalculateJoin(int relsInJoin, int newRel, int relSize,
       }
     }
   }
-  // IF we're using an index, compute the cost of the index join
-  float indexcost = FLT_MAX;
-  float filecost = 0;
-  if(useIdx == true){
-    indexcost = optcost[relSize-1][relsInJoin]->cost + 
-          optcost[relSize-1][relsInJoin]->numTuples * ((float)qlm.relEntries[newRel].numTuples)/((float)attrs[indexAttr].numDistinct);
-    cost = indexcost;
+
+  int newRelBitmap = 0;
+  AddRelToBitmap(newRel, newRelBitmap);
+
+  float indexNLJCost = optcost[relSize-1][relsInJoin]->cost + 
+                        CostEstimator::CostNLJIndex(optcost[relSize-1][relsInJoin]->numTuples,
+                                                 qlm.relEntries[newRel].numTuples, // # tuples before applying condition
+                                                                              // a potential optimization is predicate push down when
+                                                                              // lhs or rhs is a constant
+                                                 0, // assume outer table is in memory
+                                                    // no need to fetch from disc
+                                                 optcost[0][newRelBitmap]->cost);
+  
+  // Always compute the cost of nested loop join
+  // choose NLJ if it's better than index join
+  // also compute the cost of the nested loop join
+  float NoIndexNLJCost = optcost[relSize-1][relsInJoin]->cost +
+                          CostEstimator::CostNLJ(optcost[relSize-1][relsInJoin]->numTuples,
+                                                 qlm.relEntries[newRel].numTuples, // // # tuples before applying condition
+                                                                              // a potential optimization is predicate push down when
+                                                                              // lhs or rhs is a constant
+                                                 0, // assume outer table is in memory
+                                                    // no need to fetch from disc
+                                                 optcost[0][newRelBitmap]->cost);
+
+  // if the nested loop join cost is smaller, use nested loop
+  // join. Otherwise, use index join.
+  if(NoIndexNLJCost < indexNLJCost){
+    cost = NoIndexNLJCost;
+    indexAttr = -1;
+    indexCond = -1;
   }
-  //else{
-    // also compute the cost of the nested loop join
-    int newRelBitmap = 0;
-    AddRelToBitmap(newRel, newRelBitmap);
-    filecost = optcost[relSize-1][relsInJoin]->cost + 
-        optcost[relSize-1][relsInJoin]->numTuples * (1 + optcost[0][newRelBitmap]->cost);
-    // if the nested loop join cost is smaller, use nested loop
-    // join. Otherwise, use index join.
-    if(filecost < indexcost){
-      cost = filecost;
-      indexAttr = -1;
-      indexCond = -1;
-    }
-  //}
+
   return (rc);
 }
 

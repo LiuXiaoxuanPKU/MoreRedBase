@@ -132,18 +132,7 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
     free(attrEntries);
     return (rc);
   }
-  /*
-  QO_Manager *qom = new QO_Manager(*this, nRels, relEntries, nAttrs, attrEntries,
-      nConds, condptr);
-  QO_Rel * qorels = (QO_Rel*)(malloc(sizeof(QO_Rel)*nRels));
-  for(int i=0; i < nRels; i++){
-    *(qorels + i) = (QO_Rel){ 0.0, -1.0, -1.0};
-  }
-  qom->Compute(qorels);
-  qom->PrintRels();
-  delete qom;
-  free(qorels);
-  */
+
   QL_Node *topNode;
   float cost, tupleEst;
   if(smm.useQO){
@@ -152,7 +141,7 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
       nConds, condptr);
     QO_Rel * qorels = (QO_Rel*)(malloc(sizeof(QO_Rel)*nRels));
     for(int i=0; i < nRels; i++){
-      *(qorels + i) = (QO_Rel){ 0.0, -1.0, -1.0};
+      *(qorels + i) = (QO_Rel){ 0, -1, -1};
     }
     qom->Compute(qorels, cost, tupleEst);
     qom->PrintRels();
@@ -180,13 +169,6 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
     if((rc = SetUpNodes(topNode, nSelAttrs, selAttrs)))
       return (rc);
   }
-
-  
-
-  //QL_Node *topNode;
-  // Construct the query tree
-  //if((rc = SetUpNodes(topNode, nSelAttrs, selAttrs)))
-  //  return (rc);
 
   // Print the query tree
   
