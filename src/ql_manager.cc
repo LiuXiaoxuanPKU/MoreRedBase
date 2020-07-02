@@ -171,8 +171,8 @@ RC QL_Manager::Select(int nSelAttrs, const RelAttr selAttrs[],
   }
 
   // Print the query tree
-  
-
+  cout << "--------------------Join Plan after Optimization--------------------" << endl;
+  topNode->PrintNode(nRels);
   
   // run select
   if((rc = RunSelect(topNode)))
