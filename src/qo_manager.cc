@@ -92,7 +92,7 @@ RC QO_Manager::PrintRels(){
         cout << "    attribute: " << (it3->first) << endl;
         cout << "      numTuples: " << (it3->second.numTuples) << endl;
         cout << "      max: " << (it3->second.maxValue) << endl;
-        cout << "      mix: " << (it3->second.minValue) << endl;
+        cout << "      min: " << (it3->second.minValue) << endl;
       }
     }
   }
@@ -282,19 +282,20 @@ RC QO_Manager::CalculateJoin(int relsInJoin, int newRel, int relSize,
   int newRelBitmap = 0;
   AddRelToBitmap(newRel, newRelBitmap);
 
-  float indexNLJCost = optcost[relSize-1][relsInJoin]->cost + 
+  float indexNLJCost = useIdx ?  optcost[relSize-1][relsInJoin]->cost + 
                         CostEstimator::CostNLJIndex(optcost[relSize-1][relsInJoin]->numTuples,
                                                  qlm.relEntries[newRel].numTuples, // # tuples before applying condition
                                                                               // a potential optimization is predicate push down when
                                                                               // lhs or rhs is a constant
                                                  0, // assume outer table is in memory
                                                     // no need to fetch from disc
-                                                 optcost[0][newRelBitmap]->cost);
+                                                 optcost[0][newRelBitmap]->cost,
+                                                 qlm.relEntries[newRel].numTuples
+                                                 ) : INFINITY;
   
   // Always compute the cost of nested loop join
   // choose NLJ if it's better than index join
-  // also compute the cost of the nested loop join
-  float NoIndexNLJCost = optcost[relSize-1][relsInJoin]->cost +
+  float noIndexNLJCost = optcost[relSize-1][relsInJoin]->cost +
                           CostEstimator::CostNLJ(optcost[relSize-1][relsInJoin]->numTuples,
                                                  qlm.relEntries[newRel].numTuples, // // # tuples before applying condition
                                                                               // a potential optimization is predicate push down when
@@ -302,11 +303,10 @@ RC QO_Manager::CalculateJoin(int relsInJoin, int newRel, int relSize,
                                                  0, // assume outer table is in memory
                                                     // no need to fetch from disc
                                                  optcost[0][newRelBitmap]->cost);
-
   // if the nested loop join cost is smaller, use nested loop
   // join. Otherwise, use index join.
-  if(NoIndexNLJCost < indexNLJCost){
-    cost = NoIndexNLJCost;
+  if(noIndexNLJCost < indexNLJCost){
+    cost = noIndexNLJCost;
     indexAttr = -1;
     indexCond = -1;
   }
