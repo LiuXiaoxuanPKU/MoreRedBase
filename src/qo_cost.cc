@@ -12,14 +12,16 @@ float CostEstimator::CostNLJ(float Nouter, float Ninner, float scanOuterCost, fl
     return Nouter * (1 + scanInnerCost);
     #endif
 
-    // The inner table is kept in memory, so it's materialized
-    // nested loop join
-    float PGCost = 0;
-    float rescanCost = CPU_OPERATOR_COST * Ninner;
-    float materializeCost = scanInnerCost + 2 * CPU_OPERATOR_COST * Ninner;
-    PGCost = (CPU_OPERATOR_COST + CPU_TUPLE_COST) * Nouter * Ninner 
-                + rescanCost * (Nouter - 1) + scanOuterCost + materializeCost;
+    // materialized nested loop join
+    // float PGCost = 0;
+    // float rescanCost = CPU_OPERATOR_COST * Ninner;
+    // float materializeCost = scanInnerCost + 2 * CPU_OPERATOR_COST * Ninner;
+    // PGCost = (CPU_OPERATOR_COST + CPU_TUPLE_COST) * Nouter * Ninner 
+    //             + rescanCost * (Nouter - 1) + scanOuterCost + materializeCost;
 
+    // naive nested loop
+    float PGCost = 0;
+    PGCost = (CPU_OPERATOR_COST + CPU_TUPLE_COST) * Nouter * Ninner + scanInnerCost * Nouter + scanOuterCost;
     #ifdef PG_COST
     // Cost used by Postgres 
     return PGCost;
